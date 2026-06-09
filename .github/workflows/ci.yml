@@ -91,7 +91,7 @@ jobs:
         run: echo "${{ matrix.toolchain }}" > lean-toolchain
 
       - name: Install uv (for the leanclient LSP round-trip test)
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.2.0
 
       - name: Build linter library
         run: lake build LeanExtensions
