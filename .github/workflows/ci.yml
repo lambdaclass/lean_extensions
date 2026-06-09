@@ -90,8 +90,11 @@ jobs:
       - name: Pin toolchain
         run: echo "${{ matrix.toolchain }}" > lean-toolchain
 
+      - name: Install uv (for the leanclient LSP round-trip test)
+        uses: astral-sh/setup-uv@v8.2.0
+
       - name: Build linter library
         run: lake build LeanExtensions
 
-      - name: Behavioral test suite (both registration paths + --wfail gate)
+      - name: Behavioral test suite (registration paths, --wfail gate, LSP round-trip)
         run: bash test/run.sh

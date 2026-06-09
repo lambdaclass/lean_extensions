@@ -75,5 +75,19 @@ else
 fi
 
 note ""
+note "== LSP round-trip (guard diagnostics reach a language-server client) =="
+# Requires `uv` (for leanclient). Skip with a notice if uv is unavailable rather than failing the
+# whole suite on a missing optional tool.
+if command -v uv >/dev/null 2>&1; then
+  if test/lsp_diagnostics_test.py; then
+    ok "LSP round-trip: guard diagnostic published to leanclient"
+  else
+    bad "LSP round-trip test failed"
+  fi
+else
+  note "SKIP  LSP round-trip (uv not installed)"
+fi
+
+note ""
 note "== $pass passed, $fail failed =="
 [ "$fail" -eq 0 ]
