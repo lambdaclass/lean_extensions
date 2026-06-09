@@ -47,4 +47,5 @@ built with `precompileModules := true` so Lake compiles it to a shared library l
 
 - Lean options cannot hold list values (`DataValue` is `String`/`Bool`/`Name`/`Nat`/`Int`/`Syntax`
   only), hence the comma/space-separated `String` for `allowedAxioms`.
-- CI must cover Lean v4.20.0 through latest stable, plus the latest RC and nightly.
+- Minimum supported toolchain: Lean **v4.26.0**. CI covers the latest stable patch per minor from
+  v4.26 through latest, plus the latest RC and nightly.

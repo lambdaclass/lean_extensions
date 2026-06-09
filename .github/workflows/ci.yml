@@ -10,7 +10,7 @@ on:
 
 jobs:
   # Build the toolchain matrix dynamically so we never hardcode versions:
-  #   - every stable release >= v4.20.0 up to latest
+  #   - latest stable patch per minor >= v4.26.0 (the minimum supported toolchain) up to latest
   #   - the latest release candidate
   #   - nightly
   # On the scheduled run we keep ONLY nightly + the latest RC (the bleeding edge where upstream
@@ -29,11 +29,12 @@ jobs:
           # All release tags.
           tags="$(gh api --paginate repos/leanprover/lean4/releases --jq '.[].tag_name')"
 
-          # Stable, latest PATCH per minor, >= v4.20 (no -rc/-m suffix). Sort ascending first so the
-          # newest patch of each minor is the one retained; then re-sort for stable matrix order.
+          # Stable, latest PATCH per minor, >= v4.26 (the minimum supported toolchain; the guard
+          # uses APIs not present in older versions, e.g. String.splitToList). Sort ascending first
+          # so the newest patch of each minor is the one retained; then re-sort for matrix order.
           stable="$(printf '%s\n' "$tags" \
             | grep -E '^v4\.[0-9]+\.[0-9]+$' \
-            | awk -F. '($2+0) >= 20 { print }' \
+            | awk -F. '($2+0) >= 26 { print }' \
             | sort -V \
             | awk -F. '{ v[$2]=$0 } END { for (m in v) print v[m] }' \
             | sort -V)"
