@@ -1,4 +1,4 @@
-# lean-extensions
+# lean_extensions
 
 Centrally-maintained Lean 4 compiler extensions, consumed by projects as a Lake **plugin**
 dependency. Logic lives here once; downstream projects opt in with a `require` + `plugins :=` line
@@ -28,7 +28,7 @@ Configuration:
 
 ```lean
 require leanExtensions from git
-  "https://github.com/lambdaclass/lean-extensions.git" @ "main"
+  "https://github.com/lambdaclass/lean_extensions.git" @ "main"
 
 @[default_target]
 lean_lib «MyLib» where
