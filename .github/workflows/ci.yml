@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Daily run to catch upstream breakage early. Restricted (in `setup`) to nightly + current RC.
+    - cron: '0 6 * * *'
+
+jobs:
+  # Build the toolchain matrix dynamically so we never hardcode versions:
+  #   - every stable release >= v4.20.0 up to latest
+  #   - the latest release candidate
+  #   - nightly
+  # On the scheduled run we keep ONLY nightly + the latest RC (the bleeding edge where upstream
+  # breakage shows up first); push/PR exercise the full stable matrix.
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - id: gen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # All release tags.
+          tags="$(gh api --paginate repos/leanprover/lean4/releases --jq '.[].tag_name')"
+
+          # Stable, latest PATCH per minor, >= v4.20 (no -rc/-m suffix). Sort ascending first so the
+          # newest patch of each minor is the one retained; then re-sort for stable matrix order.
+          stable="$(printf '%s\n' "$tags" \
+            | grep -E '^v4\.[0-9]+\.[0-9]+$' \
+            | awk -F. '($2+0) >= 20 { print }' \
+            | sort -V \
+            | awk -F. '{ v[$2]=$0 } END { for (m in v) print v[m] }' \
+            | sort -V)"
+
+          # Latest release candidate (newest -rc tag).
+          latest_rc="$(printf '%s\n' "$tags" | grep -E '\-rc[0-9]+$' | sort -V | tail -1)"
+
+          # Nightly toolchain identifier.
+          nightly="nightly"
+
+          build_entry() { printf '{"toolchain":"leanprover/lean4:%s"}' "$1"; }
+
+          entries=()
+          if [ "$EVENT" = "schedule" ]; then
+            # Daily: bleeding edge only.
+            [ -n "$latest_rc" ] && entries+=("$(build_entry "$latest_rc")")
+            entries+=("$(build_entry "$nightly")")
+          else
+            while read -r t; do [ -n "$t" ] && entries+=("$(build_entry "$t")"); done <<< "$stable"
+            [ -n "$latest_rc" ] && entries+=("$(build_entry "$latest_rc")")
+            entries+=("$(build_entry "$nightly")")
+          fi
+
+          # Join into a JSON array (guard against an unexpectedly empty selection under `set -u`).
+          if [ "${#entries[@]}" -eq 0 ]; then
+            echo "No toolchains selected — release API filter produced nothing." >&2
+            exit 1
+          fi
+          matrix="$(printf '%s\n' "${entries[@]}" | paste -sd, -)"
+          matrix="{\"include\":[${matrix}]}"
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          echo "Matrix: ${matrix}"
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    # Nightly/RC breakage must not fail the whole workflow run when stable is green.
+    continue-on-error: ${{ contains(matrix.toolchain, 'nightly') || contains(matrix.toolchain, '-rc') }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    name: ${{ matrix.toolchain }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh
+          sh elan-init.sh -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Pin toolchain
+        run: echo "${{ matrix.toolchain }}" > lean-toolchain
+
+      - name: Build linter library
+        run: lake build LeanExtensions
+
+      - name: Behavioral test suite (both registration paths + --wfail gate)
+        run: bash test/run.sh

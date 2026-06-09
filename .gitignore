@@ -1,0 +1,6 @@
+# Lake build output (root package and the nested test consumer).
+.lake/
+
+# The nested test consumer requires the root by relative path; its manifest is machine-local
+# and regenerated on build, so it is not tracked.
+/test/consumer/lake-manifest.json
