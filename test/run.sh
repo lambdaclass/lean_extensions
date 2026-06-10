@@ -55,17 +55,32 @@ note ""
 note "== plugin-consumer path (no import) =="
 # The `plugins :=` wiring is only applied by `lake build` (which passes `--plugin` to lean), NOT
 # by a bare `lake env lean`. So we assert against the build output: force a clean re-elaboration
-# of the consumer module and check the guard message appears even though Consumer.lean has no
+# of the consumer modules and check the guard message appears even though Consumer.lean has no
 # `import LeanExtensions.AxiomGuard`.
 consumer_out="$(
   cd test/consumer || exit 2
-  touch Consumer.lean
+  touch Consumer.lean Consumer/Defs.lean
   lake build 2>&1
 )"
 if printf '%s' "$consumer_out" | grep -q "$GUARD_RE"; then
   ok "consumer: guard fires via plugins:= with no import"
 else
   bad "consumer: guard did NOT fire via plugin path"
+  printf '%s\n' "$consumer_out"
+fi
+# `Consumer.benign`/`Consumer.alsoBenign` are allow-listed via `leanOptions` in the consumer
+# lakefile, so no guard warning may mention them — neither at the `axiom` declaration sites in
+# Defs.lean nor at the use sites in Consumer.lean. `evil` must still be flagged.
+if printf '%s' "$consumer_out" | grep "$GUARD_RE" | grep -qi 'benign'; then
+  bad "consumer: lakefile-allowed axiom was flagged"
+  printf '%s\n' "$consumer_out" | grep "$GUARD_RE"
+else
+  ok "consumer: lakefile leanOptions allow-list silences benign axioms"
+fi
+if printf '%s' "$consumer_out" | grep "$GUARD_RE" | grep -q 'evil'; then
+  ok "consumer: evil still flagged despite allow-list"
+else
+  bad "consumer: evil was NOT flagged with allow-list active"
   printf '%s\n' "$consumer_out"
 fi
 if ( cd test/consumer && lake build --wfail >/dev/null 2>&1 ); then

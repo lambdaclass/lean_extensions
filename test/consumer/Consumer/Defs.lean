@@ -4,5 +4,6 @@ namespace Consumer
 
 axiom evil : False
 axiom benign : True
+axiom alsoBenign : True
 
 end Consumer

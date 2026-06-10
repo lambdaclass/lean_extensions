@@ -19,3 +19,8 @@ target axiomGuardPlugin : Dynlib := do
 @[default_target]
 lean_lib Consumer where
   plugins := #[axiomGuardPlugin]
+  -- Project-wide allow-list for the guard, passed to `lean` as `-D` flags by `lake build`.
+  -- Names must be fully qualified; the value exercises both separators (comma and space).
+  -- This only works under `lake build` (which also passes `--plugin`, registering the option
+  -- before CLI option validation) — a bare `lake env lean` would reject the unknown `-D` name.
+  leanOptions := #[⟨`linter.axiomGuard.allowedAxioms, "Consumer.benign, Consumer.alsoBenign"⟩]
